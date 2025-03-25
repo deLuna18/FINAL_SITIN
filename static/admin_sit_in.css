@@ -1169,3 +1169,114 @@ footer #pagination button:last-child {
 .bg-error {
     background-color: #dc3545 !important;
 }
+
+
+
+/* FOOTER | PAGINATION BUTTON */
+
+footer {
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+    width: 100%; 
+    margin-top: 25px; 
+}
+
+footer #pagination {
+    display: flex;
+    gap: 5px; 
+    align-items: center;
+}
+
+footer #pagination button {
+    width: 40px;
+    padding: 8px 0;
+    color: #ffffff;
+    background: #603A7E;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+footer #pagination button:hover {
+    background: #4a2c5f;
+    transform: scale(1.05);
+}
+
+footer #pagination button.active {
+    background: #2CA58D; 
+    color: #ffffff;
+    font-weight: bold;
+}
+
+footer #pagination button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #cccccc;
+    color: #666666;
+}
+
+footer #pagination button:first-child,
+footer #pagination button:last-child {
+    width: 85px; 
+}
+
+footer #pagination button:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+footer #pagination button:last-child {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+}
+
+
+/* Pagination Overlay Styles */
+#paginationOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+#sitInPagination {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    display: flex;
+    gap: 8px;
+}
+
+#sitInPagination button {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+    min-width: 40px;
+}
+
+#sitInPagination button:hover:not(:disabled) {
+    background: #f0f0f0;
+}
+
+#sitInPagination button.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+#sitInPagination button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

@@ -761,7 +761,7 @@ def get_current_sit_ins_route():
         updated_sit_ins.append(record)
     
     return jsonify({
-        "sit_ins": updated_sit_ins,  # Now with accurate session counts
+        "sit_ins": updated_sit_ins,  
         "total": total,
         "page": page,
         "per_page": per_page

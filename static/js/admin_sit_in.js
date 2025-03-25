@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Global variables for pagination and filtering
 let currentSitInPage = 1;
-const sitInPerPage = 5;
+const sitInPerPage = 10;
 let currentLabFilter = '';
 let currentSearchQuery = '';
 
@@ -193,37 +193,73 @@ async function handleCheckOut() {
         console.error("Checkout error:", error);
         alert(`Error: ${error.message}`);
     }
+
 }
-// Update pagination controls
+
+
+// Update pagination controls - EXACTLY as you want them
 function updatePaginationControls(totalItems, currentPage) {
     const totalPages = Math.ceil(totalItems / sitInPerPage);
     const paginationDiv = document.getElementById('sitInPagination');
-    
-    let html = `
-        <button ${currentPage <= 1 ? 'disabled' : ''} 
-                onclick="changeSitInPage(${currentPage - 1})">
-            Previous
-        </button>
-        <span>Page ${currentPage} of ${totalPages}</span>
-        <button ${currentPage >= totalPages ? 'disabled' : ''} 
-                onclick="changeSitInPage(${currentPage + 1})">
-            Next
-        </button>
-    `;
-    
-    paginationDiv.innerHTML = html;
+    paginationDiv.innerHTML = '';
+
+    // Previous Button
+    const prevButton = document.createElement('button');
+    prevButton.id = 'prevPage';
+    prevButton.textContent = 'Previous';
+    prevButton.disabled = currentPage <= 1;
+    prevButton.addEventListener('click', () => {
+        if (currentPage > 1) {
+            changeSitInPage(currentPage - 1);
+        }
+    });
+    paginationDiv.appendChild(prevButton);
+
+    // Page Numbers (1-2-3 style)
+    const maxVisiblePages = 3; // Shows exactly 3 page buttons as in your example
+    let startPage = Math.max(1, currentPage - 1);
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    // Adjust if we're at the end
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        const pageButton = document.createElement('button');
+        pageButton.textContent = i;
+        if (i === currentPage) {
+            pageButton.classList.add('active');
+        }
+        pageButton.addEventListener('click', () => {
+            changeSitInPage(i);
+        });
+        paginationDiv.appendChild(pageButton);
+    }
+
+    // Next Button
+    const nextButton = document.createElement('button');
+    nextButton.id = 'nextPage';
+    nextButton.textContent = 'Next';
+    nextButton.disabled = currentPage >= totalPages;
+    nextButton.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+            changeSitInPage(currentPage + 1);
+        }
+    });
+    paginationDiv.appendChild(nextButton);
 }
 
-// Change page function (add to global scope)
+// Keep your existing global page change function
 window.changeSitInPage = function(newPage) {
     currentSitInPage = newPage;
     fetchCurrentSitIns(newPage);
 };
 
-// Update entries info text
+// Keep your existing entries info function
 function updateEntriesInfo(total, page, perPage) {
     const start = (page - 1) * perPage + 1;
     const end = Math.min(page * perPage, total);
-    const info = `Showing ${start} to ${end} of ${total} entries`;
-    document.getElementById('entriesInfo').textContent = info;
+    document.getElementById('entriesInfo').textContent = 
+        `Showing ${start} to ${end} of ${total} entries`;
 }
