@@ -3,6 +3,7 @@ from dbhelper import *
 import dbhelper, os
 from werkzeug.utils import secure_filename
 from PIL import Image
+from datetime import datetime, timedelta
 
 # from dbhelper import get_student_by_username, update_student_profile, is_idno_exists, get_reservation_by_id_or_student, get_all_student_emails, delete_announcement, getprocess, get_all_registered_students, count_all_registered_students, get_admin_student_reservations,get_weekly_enrollment, get_monthly_enrollment, get_yearly_enrollment, count_all_reservations,search_student,get_reserved_students, get_enrolled_students,get_registered_students, count_registered_students, abort
 
@@ -650,7 +651,7 @@ def search_registered_students():
 
 
 # =========================================[ADMIN] SIT_IN PAGE =================================
-# ADMIN SIT IN STUDENTS [MGA NAGPA RESERVE] 
+# ADMIN SIT IN STUDENTS 
 @app.route("/admin_sit_in")
 def admin_sit_in():
     if "user" not in session or not dbhelper.is_admin(session["user"]):
@@ -695,6 +696,64 @@ def record_sit_in():
     except Exception as e:
         print(f"Error recording sit-in: {e}")
         return jsonify({'success': False}), 500
+
+
+@app.route("/save_sit_in", methods=["POST"])
+def save_sit_in():
+    data = request.json
+    try:
+        # Get Philippine time
+        ph_tz = pytz.timezone('Asia/Manila')
+        sit_in_time = datetime.now(ph_tz).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Create record with all fields
+        success = dbhelper.create_sit_in_record(
+            student_id=data.get('student_id'),
+            firstname=data.get('firstname'),
+            lastname=data.get('lastname'),
+            middlename=data.get('middlename', ''),  # Added middle name
+            course=data.get('course'),
+            lab=data.get('lab', 'No lab reservation'),
+            purpose=data.get('purpose', 'No purpose specified'),
+            sit_in_time=sit_in_time,
+            year_level=data.get('year_level', ''),
+            email_address=data.get('email_address', '')
+        )
+        
+        if not success:
+            return jsonify({"success": False, "error": "Database operation failed"}), 500
+            
+        return jsonify({"success": True, "check_in_time": sit_in_time})
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+    
+@app.route("/get_current_sit_ins", methods=["GET"])
+def get_current_sit_ins_route():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    lab = request.args.get('lab', '')
+    query = request.args.get('query', '')
+    
+    offset = (page - 1) * per_page
+    
+    if lab or query:
+        sit_ins = dbhelper.get_current_sit_ins_filtered(lab=lab, query=query, limit=per_page, offset=offset)
+        total = dbhelper.count_current_sit_ins_filtered(lab=lab, query=query)
+    else:
+        sit_ins = dbhelper.get_current_sit_ins(limit=per_page, offset=offset)
+        total = dbhelper.count_current_sit_ins()
+    
+    return jsonify({
+        "sit_ins": sit_ins,
+        "total": total,
+        "page": page,
+        "per_page": per_page
+    })
+
+
 
 # ====================== VIEW SIT RECORD ================
 @app.route("/view_sit_record")

@@ -373,89 +373,123 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // SEARCH RESERVED STUDENTS - Triggers when the search button is clicked
-function searchReservedStudents() {
+// SEARCH REGISTERED STUDENTS
+function searchRegisteredStudents() {
     const query = document.getElementById('searchInput').value.trim();
 
     if (query.length > 0) {
-        fetch(`/search_reserved_students?query=${query}`)
+        fetch(`/search_registered_students?query=${query}`)
             .then(response => response.json())
             .then(data => {
-                if (data.students.length > 0) {
-                    const student = data.students[0]; 
-
-                    openSitInModal(student);
-                    document.getElementById('openModalBtn').style.display = 'none'; 
-
+                if (data.students && data.students.length > 0) {
+                    const student = data.students[0];
+                    openStudentModal(student);
                 } else {
-                    alert("No reserved students found.");
-                    document.getElementById('openModalBtn').style.display = 'none';  
+                    alert("No registered students found matching your search.");
                 }
             })
             .catch(error => {
-                console.error('Error fetching reserved students:', error);
+                console.error('Error fetching student data:', error);
+                alert("Error searching for students. Please try again.");
             });
     } else {
-        document.getElementById('openModalBtn').style.display = 'none';  
+        alert("Please enter a search term (ID Number or Last Name)");
     }
 }
 
-// SEARCH BUTTON
-document.getElementById('searchBtn').addEventListener('click', searchReservedStudents);
-// FUNCTION TO OPEN MODAL AND POPULATE A STUDENT DATA 
-function openSitInModal(student) {
-    document.getElementById('idNumber').value = student.idno;
-    document.getElementById('studentName').value = student.student_name;
-    document.getElementById('purpose').value = student.purpose;
-    document.getElementById('lab').value = student.lab;
-    document.getElementById('remainingSessions').value = student.remaining_sessions;
+// OPEN STUDENT MODAL WITH DATA
+// OPEN STUDENT MODAL WITH DATA
+function openStudentModal(student) {
+    // Populate all fields
+    document.getElementById('studentIdNumber').value = student.idno || 'N/A';
+    document.getElementById('studentLastName').value = student.lastname || 'N/A';
+    document.getElementById('studentFirstName').value = student.firstname || 'N/A';
+    document.getElementById('studentMiddleName').value = student.middlename || 'N/A';
+    document.getElementById('studentCourse').value = student.course || 'N/A';
+    document.getElementById('studentYearLevel').value = student.year_level || 'N/A';
+    document.getElementById('studentEmail').value = student.email_address || 'N/A';
+    
+    // Display session credits (default is 30)
+    document.getElementById('studentSession').value = student.sessions !== undefined ? student.sessions : 30;
+    
+    // These can be removed if you don't use them
+   // Set Lab dropdown (if lab exists in data, else default)
+   const labDropdown = document.getElementById('studentLab');
+   if (student.lab) {
+	   labDropdown.value = student.lab;
+   } else {
+	   labDropdown.value = "No lab reservation";
+   }
 
-    // SHOW MODAL
-    document.getElementById('sitInModal').style.display = 'flex';
+   // Set Purpose dropdown (if purpose exists in data, else default)
+   const purposeDropdown = document.getElementById('studentPurpose');
+   if (student.purpose) {
+	   purposeDropdown.value = student.purpose;
+   } else {
+	   purposeDropdown.value = "No purpose specified";
+   }
+
+    // Show modal
+    document.getElementById('studentInfoModal').style.display = 'flex';
 }
 
-// CLOSE MODAL
-document.getElementById('closeModal').onclick = function() {
-    document.getElementById('sitInModal').style.display = 'none';
-};
+// CLOSE STUDENT MODAL
+document.getElementById('closeStudentModal').addEventListener('click', function() {
+    document.getElementById('studentInfoModal').style.display = 'none';
+});
 
-// ACCEPT BUTTON
-document.getElementById('acceptBtn').onclick = function() {
-    const idNumber = document.getElementById('idNumber').value;
-    fetch(`/accept_reservation`, {
-        method: 'POST',
-        body: new URLSearchParams({ idNumber: idNumber })
-    })
+// CLOSE MODAL WHEN CLICKING OUTSIDE
+window.addEventListener('click', function(event) {
+    if (event.target === document.getElementById('studentInfoModal')) {
+        document.getElementById('studentInfoModal').style.display = 'none';
+    }
+});
+
+// UPDATE SEARCH BUTTON EVENT LISTENER
+document.getElementById('searchBtn').addEventListener('click', searchRegisteredStudents);
+
+// Handle Sit In Button Click
+// Handle Sit In Button Click
+document.getElementById('confirmSitInBtn').addEventListener('click', function() {
+    const studentId = document.getElementById('studentIdNumber').value;
+    const lastName = document.getElementById('studentLastName').value;
+    const firstName = document.getElementById('studentFirstName').value;
+    const middleName = document.getElementById('studentMiddleName').value;
+    const course = document.getElementById('studentCourse').value;
+    const yearLevel = document.getElementById('studentYearLevel').value;
+    const email = document.getElementById('studentEmail').value;
+    const lab = document.getElementById('studentLab').value;
+    const purpose = document.getElementById('studentPurpose').value;
+    
+
+    fetch('/save_sit_in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+          student_id: studentId,
+          firstname: firstName,
+          lastname: lastName,
+          middlename: middleName, 
+          course: course,
+          year_level: yearLevel,
+          email_address: email,
+          lab: lab,
+          purpose: purpose
+      })
+  })
     .then(response => response.json())
     .then(data => {
-        if (data.message) {
-            alert(data.message);
+        if (data.success) {
+            alert("Sit-in recorded successfully!");
+            document.getElementById('studentInfoModal').style.display = 'none';
+            // Optional: Refresh the page or update UI
+            window.location.reload();
+        } else {
+            alert("Error: " + (data.error || "Failed to record sit-in"));
         }
     })
     .catch(error => {
-        console.error('Error accepting reservation:', error);
+        console.error('Error:', error);
+        alert("Failed to record sit-in. Please try again.");
     });
-
-    // CLOSE MODAL AFTER ACCEPTING
-    document.getElementById('sitInModal').style.display = 'none';
-};
-
-// REJECT BUTTON
-document.getElementById('rejectBtn').onclick = function() {
-    const idNumber = document.getElementById('idNumber').value;
-    fetch(`/reject_reservation`, {
-        method: 'POST',
-        body: new URLSearchParams({ idNumber: idNumber })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.message) {
-            alert(data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error rejecting reservation:', error);
-    });
-
-    // CLOSE MODAL
-    document.getElementById('sitInModal').style.display = 'none';
-};
+});

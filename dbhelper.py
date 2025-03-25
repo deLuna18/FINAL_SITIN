@@ -468,17 +468,18 @@ def get_all_registered_students(limit=10, offset=0):
 # GET REGISTERED STUDENTS
 def get_registered_students(search_query='', limit=10, offset=0):
     sql = '''
-        SELECT idno, firstname, lastname, course, year_level, email_address, username
+        SELECT idno, firstname, lastname, middlename, course, year_level, 
+               email_address, username, sessions
         FROM users
-        WHERE (idno LIKE ?  -- Search by ID number
-           OR firstname LIKE ?  -- Search by first name
-           OR lastname LIKE ?)  -- Search by last name
-           AND idno != ?  -- Exclude admin user
-        ORDER BY idno ASC  -- Sort by idno in ascending order
-        LIMIT ? OFFSET ?  -- Add pagination
+        WHERE (idno LIKE ?
+           OR firstname LIKE ?
+           OR lastname LIKE ?)
+           AND idno != ?
+        ORDER BY idno ASC
+        LIMIT ? OFFSET ?
     '''
     search_term = f"%{search_query}%"
-    admin_id = "428237351"  
+    admin_id = "428237351"
     params = (search_term, search_term, search_term, admin_id, limit, offset)
     return getprocess(sql, params)
 
@@ -505,10 +506,122 @@ def get_enrolled_students(page, per_page, search_query=''):
     return getprocess(sql, params)
 
 
-# CREATE SIT-IN RECORD
-def create_sit_in(student_id, student_name, course, year_level, lab, purpose, processed_by, sit_in_time):
-    sql = """INSERT INTO sit_ins 
-             (student_id, student_name, course, year_level, lab, purpose, processed_by, sit_in_time)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
-    return postprocess(sql, (student_id, student_name, course, year_level, lab, purpose, processed_by, sit_in_time))
 
+# =============== SIT-IN FUNCTIONS ===============
+
+def create_sit_in_record(student_id: int, firstname: str, lastname: str, 
+                        middlename: str, course: str, lab: str, 
+                        purpose: str, sit_in_time: str,
+                        year_level: str = "", email_address: str = "") -> bool:
+    """Create a new sit-in record in current_sit_in table with timestamp"""
+    
+    sql = """INSERT INTO current_sit_in 
+             (student_id, firstname, lastname, middlename, course, lab, purpose, 
+              check_in_time, year_level, email_address) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+    return postprocess(sql, (student_id, firstname, lastname, middlename, course, 
+                         lab, purpose, sit_in_time, year_level, email_address))
+
+
+
+def deduct_session_credit(student_id: int) -> bool:
+    """Deduct 1 session from student's balance"""
+    sql = "UPDATE users SET sessions = sessions - 1 WHERE idno = ?"
+    return postprocess(sql, (student_id,))
+
+def get_current_sit_ins(limit=10, offset=0):
+    """Get all current sit-ins with pagination"""
+    sql = """SELECT student_id, firstname, lastname, course, lab, purpose, 
+                    datetime(check_in_time, 'localtime') as check_in_time
+             FROM current_sit_in
+             ORDER BY check_in_time DESC
+             LIMIT ? OFFSET ?"""
+    return getprocess(sql, (limit, offset))
+
+def count_current_sit_ins():
+    """Count total current sit-ins"""
+    sql = "SELECT COUNT(*) AS total FROM current_sit_in"
+    result = getprocess(sql)
+    return result[0]["total"] if result else 0
+
+def check_out_student(student_id: int) -> bool:
+    """Remove student from current_sit_in table when checking out"""
+    sql = "DELETE FROM current_sit_in WHERE student_id = ?"
+    return postprocess(sql, (student_id,))
+
+
+def get_student_session_count(student_id: int) -> int:
+    """Get remaining session count for a student"""
+    sql = "SELECT sessions FROM users WHERE idno = ?"
+    result = getprocess(sql, (student_id,))
+    return result[0]["sessions"] if result else 0
+
+
+def get_current_sit_ins_filtered(lab='', query='', limit=10, offset=0):
+    """Get filtered current sit-ins"""
+    sql = """SELECT student_id, firstname, lastname, course, year_level, 
+                    email_address, username, profile_picture, lab, purpose, 
+                    datetime(check_in_time, 'localtime') as check_in_time
+             FROM current_sit_in
+             WHERE 1=1"""
+    params = []
+    
+    if lab:
+        sql += " AND lab = ?"
+        params.append(lab)
+        
+    if query:
+        sql += " AND (student_id LIKE ? OR firstname LIKE ? OR lastname LIKE ?)"
+        params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
+    
+    sql += " ORDER BY check_in_time DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    
+    return getprocess(sql, tuple(params))
+
+def count_current_sit_ins_filtered(lab='', query=''):
+    """Count filtered current sit-ins"""
+    sql = "SELECT COUNT(*) AS total FROM current_sit_in WHERE 1=1"
+    params = []
+    
+    if lab:
+        sql += " AND lab = ?"
+        params.append(lab)
+        
+    if query:
+        sql += " AND (student_id LIKE ? OR firstname LIKE ? OR lastname LIKE ?)"
+        params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
+    
+    result = getprocess(sql, tuple(params))
+    return result[0]["total"] if result else 0
+
+def get_current_sit_ins(limit=10, offset=0):
+    """Get all current sit-ins with pagination"""
+    sql = """SELECT student_id, firstname, lastname, course, year_level, email_address,
+                    lab, purpose, datetime(check_in_time, 'localtime') as check_in_time
+             FROM current_sit_in
+             ORDER BY check_in_time DESC
+             LIMIT ? OFFSET ?"""
+    return getprocess(sql, (limit, offset))
+
+def get_current_sit_ins_filtered(lab='', query='', limit=10, offset=0):
+    """Get filtered current sit-ins"""
+    sql = """SELECT student_id, firstname, lastname, course, year_level, 
+                    email_address, lab, purpose, 
+                    datetime(check_in_time, 'localtime') as check_in_time
+             FROM current_sit_in
+             WHERE 1=1"""
+    params = []
+    
+    if lab:
+        sql += " AND lab = ?"
+        params.append(lab)
+        
+    if query:
+        sql += " AND (student_id LIKE ? OR firstname LIKE ? OR lastname LIKE ?)"
+        params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
+    
+    sql += " ORDER BY check_in_time DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    
+    return getprocess(sql, tuple(params))

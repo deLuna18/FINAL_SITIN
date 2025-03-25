@@ -66,292 +66,164 @@ sidebar.addEventListener('mouseenter', function () {
     }
 });
 
+// ============================== CURRENT SIT-INS TABLE FUNCTIONALITY =================================
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    fetchCurrentSitIns();
+    
+    // Add event listeners for search and filter
+    document.getElementById('searchBtn').addEventListener('click', function() {
+        currentSitInPage = 1;
+        fetchCurrentSitIns();
+    });
+    
+    document.getElementById('labFilter').addEventListener('change', function() {
+        currentSitInPage = 1;
+        fetchCurrentSitIns();
+    });
+});
 
-// ============================== TABLE FUNCTIONALITY =================================
-// ============================== TABLE FUNCTIONALITY =================================
+// Global variables for pagination and filtering
+let currentSitInPage = 1;
+const sitInPerPage = 10;
+let currentLabFilter = '';
+let currentSearchQuery = '';
 
-let currentPage = 1;
-let perPage = 5; 
-let satInStudents = JSON.parse(localStorage.getItem('satInStudents')) || [];
-
-// FETCH ALL REGISTERED STUDENTS
-async function fetchAllRegisteredStudents(page = 1) {
+// Fetch and display current sit-ins
+async function fetchCurrentSitIns(page = 1) {
     try {
-        const response = await fetch(`/search_registered_students?page=${page}`);
+        const labFilter = document.getElementById('labFilter').value;
+        const searchQuery = document.getElementById('searchQuery').value;
+        
+        let url = `/get_current_sit_ins?page=${page}&per_page=${sitInPerPage}`;
+        if (labFilter) url += `&lab=${encodeURIComponent(labFilter)}`;
+        if (searchQuery) url += `&query=${encodeURIComponent(searchQuery)}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        
         const data = await response.json();
-        displayRegisteredStudents(data.students);
-        updatePagination(data.total, data.page, data.per_page);
+        displayCurrentSitIns(data.sit_ins);
+        updatePaginationControls(data.total, page);
+        updateEntriesInfo(data.total, page, sitInPerPage);
+        
     } catch (error) {
-        console.error("Error fetching students:", error);
-        alert("An error occurred while fetching students. Please try again.");
+        console.error("Error fetching sit-ins:", error);
+        alert("Failed to load sit-ins. Please try again.");
     }
 }
 
-// SEARCH REGISTERED STUDENTS
-async function searchRegisteredStudents(page = 1) {
-    const query = document.getElementById('registeredSearchInput').value.trim();
 
-    try {
-        const response = await fetch(`/search_registered_students?query=${encodeURIComponent(query)}&page=${page}`);
-        const data = await response.json();
-        displayRegisteredStudents(data.students);
-        updatePagination(data.total, data.page, data.per_page);
-    } catch (error) {
-        console.error("Error fetching search results:", error);
-        alert("An error occurred while searching. Please try again.");
-    }
-}
-
-// UPDATE PAGINATION
-function updatePagination(total, page, perPage) {
-    const paginationDiv = document.getElementById('pagination');
-    paginationDiv.innerHTML = ''; 
-
-    const totalPages = Math.ceil(total / perPage);
-
-    // PREVIOUS BUTTON
-    if (page > 1) {
-        const prevButton = document.createElement('button');
-        prevButton.textContent = 'Previous';
-        prevButton.id = 'prevPage';
-        prevButton.addEventListener('click', () => {
-            currentPage = page - 1;
-            searchRegisteredStudents(currentPage);
-        });
-        paginationDiv.appendChild(prevButton);
-    } else {
-        const prevButton = document.createElement('button');
-        prevButton.textContent = 'Previous';
-        prevButton.id = 'prevPage';
-        prevButton.disabled = true;
-        paginationDiv.appendChild(prevButton);
-    }
-
-    // PAGE NUMBER
-    for (let i = 1; i <= totalPages; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.textContent = i;
-        pageButton.classList.toggle('active', i === page);
-        pageButton.addEventListener('click', () => {
-            currentPage = i;
-            searchRegisteredStudents(currentPage);
-        });
-        paginationDiv.appendChild(pageButton);
-    }
-
-    // NEXT BUTTON
-    if (page < totalPages) {
-        const nextButton = document.createElement('button');
-        nextButton.textContent = 'Next';
-        nextButton.id = 'nextPage';
-        nextButton.addEventListener('click', () => {
-            currentPage = page + 1;
-            searchRegisteredStudents(currentPage);
-        });
-        paginationDiv.appendChild(nextButton);
-    } else {
-        const nextButton = document.createElement('button');
-        nextButton.textContent = 'Next';
-        nextButton.id = 'nextPage';
-        nextButton.disabled = true;
-        paginationDiv.appendChild(nextButton);
-    }
-}
-
-// DISPLAY
-// DISPLAY FUNCTION WITH PERSISTENT STATES
-function displayRegisteredStudents(students) {
-    const tbody = document.getElementById('registeredStudentsTableBody');
+function displayCurrentSitIns(sitIns) {
+    const tbody = document.getElementById('currentSitInsTableBody');
     tbody.innerHTML = '';
     
-    if (students.length === 0) {
+    if (!sitIns || sitIns.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" class="text-center py-4">No students found</td>
+                <td colspan="9" class="text-center">No current sit-ins found</td>
             </tr>
         `;
         return;
     }
 
-    students.forEach(student => {
+    sitIns.forEach(sitIn => {
         const row = document.createElement('tr');
         row.innerHTML = `
+            <td>${sitIn.student_id || 'N/A'}</td>
+            <td>${sitIn.lastname || ''}, ${sitIn.firstname || ''}</td>
+            <td>${sitIn.course || 'N/A'}</td>
+            <td>${sitIn.year_level || 'N/A'}</td>
+            <td>${sitIn.email_address || 'N/A'}</td>
+            <td>${sitIn.lab || 'No lab'}</td>
+            <td>${sitIn.purpose || 'No purpose'}</td>
+            <td>${formatDateTime(sitIn.check_in_time) || 'N/A'}</td>
             <td>
-                <img src="/static/uploads/${student.profile_picture || 'default_profile.png'}" 
-                     class="profile-img">
-            </td>
-            <td>${student.idno}</td>
-            <td>${student.firstname} ${student.lastname}</td>
-            <td>${student.course}</td>
-            <td>${student.year_level}</td>
-            <td>${student.email_address}</td>
-            <td>${student.username}</td>
-            <td>
-                <select class="form-select form-select-sm lab-select">
-                    <option value="Lab 1">Lab 1</option>
-                    <option value="Lab 2">Lab 2</option>
-                    <option value="Lab 3">Lab 3</option>
-                </select>
-            </td>
-            <td>
-                <select class="form-select form-select-sm purpose-select">
-                    <option value="Research">Research</option>
-                    <option value="Project">Project</option>
-                    <option value="Thesis">Thesis</option>
-                    <option value="Other">Other</option>
-                </select>
-            </td>
-            <td>
-                <button class="btn btn-primary btn-sm sit-in-btn"
-                        data-id="${student.idno}">
-                    <i class="fas fa-chair"></i> Sit In
+                <button class="check-out-btn" data-id="${sitIn.student_id}">
+                    <i class="fas fa-sign-out-alt"></i> Check Out
                 </button>
             </td>
         `;
         tbody.appendChild(row);
     });
 
-    // Add sit-in button functionality
-    // Modified sit-in button functionality
-    document.querySelectorAll('.sit-in-btn').forEach(button => {
-        button.addEventListener('click', async function() {
-            const btn = this;
-            const row = btn.closest('tr');
-            const studentId = btn.dataset.id;
-            
-            try {
-                // Show loading state
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                btn.disabled = true;
-
-                const studentData = {
-                    student_id: studentId,
-                    student_name: row.cells[2].textContent,
-                    course: row.cells[3].textContent,
-                    year_level: row.cells[4].textContent,
-                    lab: row.querySelector('.lab-select').value,
-                    purpose: row.querySelector('.purpose-select').value
-                };
-
-                // Record the sit-in (if you still want to send to server)
-                const response = await fetch('/sit-in/record', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(studentData)
-                });
-
-                if (!response.ok) throw new Error('Failed to record sit-in');
-
-                // Add to our local satInStudents list
-                satInStudents.push(studentId);
-                localStorage.setItem('satInStudents', JSON.stringify(satInStudents));
-
-                // Remove the row immediately
-                row.style.opacity = '0';
-                setTimeout(() => row.remove(), 300);
-                
-                // Show success message
-                alert('Sit-in recorded successfully!');
-                
-                // Check if table is empty
-                const tbody = document.getElementById('registeredStudentsTableBody');
-                if (tbody.querySelectorAll('tr').length === 1) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="10" class="text-center py-4">No students remaining</td>
-                        </tr>
-                    `;
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                btn.innerHTML = '<i class="fas fa-chair"></i> Sit In';
-                btn.disabled = false;
-                alert('Failed to record sit-in: ' + error.message);
-            }
-        });
+    // Add event listeners to check-out buttons
+    document.querySelectorAll('.check-out-btn').forEach(btn => {
+        btn.addEventListener('click', handleCheckOut);
     });
-
-}
-
-// Add this to clear sat-in records when needed (optional)
-function clearSatInRecords() {
-    localStorage.removeItem('satInStudents');
-    satInStudents = [];
-    alert('Sat-in records cleared!');
-    fetchAllRegisteredStudents(currentPage);
 }
 
 
-// Helper function to get cookies
-// Helper function to get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
+// Format date-time display
+function formatDateTime(datetimeString) {
+    if (!datetimeString) return '';
+    const options = { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit'
+    };
+    return new Date(datetimeString).toLocaleString('en-US', options);
+}
+
+// Handle check-out
+async function handleCheckOut() {
+    const studentId = this.dataset.id;
+    if (!confirm(`Check out student ${studentId}?`)) return;
+    
+    try {
+        const response = await fetch('/check_out_student', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ student_id: studentId })
+        });
+        
+        if (!response.ok) throw new Error('Check-out failed');
+        
+        const result = await response.json();
+        if (result.success) {
+            alert('Student checked out successfully!');
+            fetchCurrentSitIns(currentSitInPage);
+        } else {
+            throw new Error(result.error || 'Check-out failed');
         }
-    }
-    return cookieValue;
-}
-
-// DEBOUNCE SEARCH
-let searchTimeout;
-document.getElementById('registeredSearchInput').addEventListener('input', () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        searchRegisteredStudents(1);
-    }, 300); // Adjust debounce time as needed
-});
-
-window.onload = fetchAllRegisteredStudents;
-
-
-// ============================== ENTRIES DROPDOWN FUNCTIONALITY =================================
-
-//DROPDOWN
-const entriesDropdown = document.getElementById('table_size');
-
-entriesDropdown.addEventListener('change', function () {
-    const selectedValue = parseInt(this.value); 
-    perPage = selectedValue; 
-    currentPage = 1; 
-    searchRegisteredStudents(currentPage); 
-});
-
-// FETCH
-async function fetchAllRegisteredStudents(page = 1) {
-    try {
-        const response = await fetch(`/search_registered_students?page=${page}&per_page=${perPage}`);
-        const data = await response.json();
-        displayRegisteredStudents(data.students);
-        updatePagination(data.total, data.page, data.per_page);
     } catch (error) {
-        console.error("Error fetching students:", error);
-        alert("An error occurred while fetching students. Please try again.");
+        console.error('Check-out error:', error);
+        alert(`Error: ${error.message}`);
     }
 }
 
-// SEARCH
-async function searchRegisteredStudents(page = 1) {
-    const query = document.getElementById('registeredSearchInput').value.trim();
+// Update pagination controls
+function updatePaginationControls(totalItems, currentPage) {
+    const totalPages = Math.ceil(totalItems / sitInPerPage);
+    const paginationDiv = document.getElementById('sitInPagination');
+    
+    let html = `
+        <button ${currentPage <= 1 ? 'disabled' : ''} 
+                onclick="changeSitInPage(${currentPage - 1})">
+            Previous
+        </button>
+        <span>Page ${currentPage} of ${totalPages}</span>
+        <button ${currentPage >= totalPages ? 'disabled' : ''} 
+                onclick="changeSitInPage(${currentPage + 1})">
+            Next
+        </button>
+    `;
+    
+    paginationDiv.innerHTML = html;
+}
 
-    try {
-        const response = await fetch(`/search_registered_students?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}`);
-        const data = await response.json();
-        displayRegisteredStudents(data.students);
-        updatePagination(data.total, data.page, data.per_page);
-    } catch (error) {
-        console.error("Error fetching search results:", error);
-        alert("An error occurred while searching. Please try again.");
-    }
+// Change page function (add to global scope)
+window.changeSitInPage = function(newPage) {
+    currentSitInPage = newPage;
+    fetchCurrentSitIns(newPage);
+};
+
+// Update entries info text
+function updateEntriesInfo(total, page, perPage) {
+    const start = (page - 1) * perPage + 1;
+    const end = Math.min(page * perPage, total);
+    const info = `Showing ${start} to ${end} of ${total} entries`;
+    document.getElementById('entriesInfo').textContent = info;
 }

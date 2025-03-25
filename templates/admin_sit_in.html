@@ -213,36 +213,55 @@
                 <!-- SEARCH BAR -->
                 <div class="search-container">
                     <input type="text" id="registeredSearchInput" placeholder="Search by name or ID...">
-                    <button onclick="searchRegisteredStudents()">Search</button>
+                    <button onclick="sitInSearchInput()">Search</button>
                 </div>
             </div>
         </header>
+
+        <div class="table-controls">
+            <div class="filters">
+                <select id="labFilter" class="filter-select">
+                    <option value="">All Labs</option>
+                    <option value="Lab 1">Lab 1</option>
+                    <option value="Lab 2">Lab 2</option>
+                    <option value="Lab 3">Lab 3</option>
+                </select>
+                
+                <input type="text" id="searchQuery" placeholder="Search ID or Name..." class="search-input">
+                <button id="searchBtn" class="search-btn">Search</button>
+            </div>
+            
+            <div id="entriesInfo" class="entries-info">Showing 0 to 0 of 0 entries</div>
+        </div>
 
         <!-- TABLE -->
         <table class="styled-table">
             <thead>
                 <tr class="heading">
-                    <th>Profile</th>
                     <th>ID No</th>
                     <th>Full Name</th>
                     <th>Course</th>
                     <th>Year Level</th>
                     <th>Email</th>
-                    <th>Username</th>
                     <th>Lab</th>
                     <th>Purpose</th>
+                    <th>Check-in Time</th>
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody id="registeredStudentsTableBody">
+            <tbody id="currentSitInsTableBody">
                 
             </tbody>
         </table>
+
+        <div id="entriesInfo"></div>
+<div id="sitInPagination"></div>
+
         
        
         <!-- FOOTER | PAGINATION -->
         <footer>
-            <div id="pagination">
+            <div id="sitInPagination">
                 <button id="prevPage" disabled>Previous</button>
                 <button class="active">1</button>
                 <button>2</button>
