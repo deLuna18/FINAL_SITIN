@@ -739,6 +739,7 @@ def get_current_sit_ins_route():
     
     offset = (page - 1) * per_page
     
+    # Get base records using your existing functions
     if lab or query:
         sit_ins = dbhelper.get_current_sit_ins_filtered(lab=lab, query=query, limit=per_page, offset=offset)
         total = dbhelper.count_current_sit_ins_filtered(lab=lab, query=query)
@@ -746,8 +747,21 @@ def get_current_sit_ins_route():
         sit_ins = dbhelper.get_current_sit_ins(limit=per_page, offset=offset)
         total = dbhelper.count_current_sit_ins()
     
+    # Get FRESH session counts for each student
+    updated_sit_ins = []
+    for record in sit_ins:
+        fresh_sessions = dbhelper.getprocess(
+            "SELECT sessions FROM users WHERE idno = ? LIMIT 1",
+            (record['student_id'],)
+        )
+        
+        if fresh_sessions:
+            record['sessions_remaining'] = fresh_sessions[0]['sessions']
+        
+        updated_sit_ins.append(record)
+    
     return jsonify({
-        "sit_ins": sit_ins,
+        "sit_ins": updated_sit_ins,  # Now with accurate session counts
         "total": total,
         "page": page,
         "per_page": per_page
@@ -759,50 +773,52 @@ def check_out_student():
     student_id = data.get('student_id')
 
     try:
-        # 1. Get record with guaranteed year_level
-        current_record = getprocess(
-            """SELECT 
-                  student_id, firstname, lastname, course, 
-                  COALESCE(year_level, 'Not Specified') AS year_level,
-                  lab, purpose, check_in_time
-               FROM current_sit_in 
-               WHERE student_id = ?""",
+        # 1. Get FRESH session count directly from users table
+        user_data = getprocess(
+            "SELECT sessions FROM users WHERE idno = ? LIMIT 1", 
             (student_id,)
+        )[0]
+        new_sessions = user_data['sessions'] - 1
+
+        # 2. Get current sit-in record
+        current_record = getprocess(
+            "SELECT * FROM current_sit_in WHERE student_id = ? LIMIT 1",
+            (student_id,)
+        )[0]
+
+        # 3. Update ALL tables in proper order
+        postprocess(
+            "UPDATE users SET sessions = ? WHERE idno = ?",
+            (new_sessions, student_id)
         )
-        
-        if not current_record:
-            return jsonify({"success": False, "error": "Student not found"})
 
-        record = current_record[0]
-
-        # 2. Insert with protected fields
-        history_success = postprocess(
+        postprocess(
             """INSERT INTO sit_ins 
-               (student_id, student_name, course, year_level, lab, 
-                purpose, processed_by, sit_in_time)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               (student_id, student_name, course, year_level, lab, purpose, 
+                processed_by, sit_in_time, sessions_remaining)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                record['student_id'],
-                f"{record['firstname']} {record['lastname']}",
-                record.get('course', 'Not Specified'),
-                record['year_level'],  # Now guaranteed by COALESCE
-                record.get('lab', 'Not Specified'),
-                record.get('purpose', 'Not Specified'),
-                "Auto-Checkout",
-                record.get('check_in_time', datetime.now().isoformat())
+                current_record['student_id'],
+                f"{current_record['firstname']} {current_record['lastname']}",
+                current_record['course'],
+                current_record['year_level'],
+                current_record['lab'],
+                current_record['purpose'],
+                "System",
+                current_record['check_in_time'],
+                new_sessions  # Use freshly calculated value
             )
         )
 
-        # 3. Delete from current
-        checkout_success = postprocess(
+        postprocess(
             "DELETE FROM current_sit_in WHERE student_id = ?",
             (student_id,)
         )
 
-        if not all([history_success, checkout_success]):
-            raise Exception("Database operation failed")
-
-        return jsonify({"success": True})
+        return jsonify({
+            "success": True,
+            "remaining_sessions": new_sessions
+        })
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
@@ -818,11 +834,9 @@ def view_sit_record():
     per_page = request.args.get("per_page", 10, type=int)
     offset = (page - 1) * per_page
 
-    # Fetch all reservations with status
     reservations = dbhelper.get_all_reservations_with_status(per_page, offset)
     total_reservations = dbhelper.count_all_reservations()
 
-    # Calculate total pages
     total_pages = (total_reservations + per_page - 1) // per_page
 
     return render_template(
@@ -833,24 +847,30 @@ def view_sit_record():
         total_pages=total_pages,
     )
 
-
+# CHECKOUT
 @app.route('/get_checked_out_records')
 def get_checked_out_records():
     try:
         records = getprocess(
             """SELECT 
-                  student_id, student_name, course, year_level,
-                  lab, purpose, processed_by,
-                  datetime(sit_in_time) as check_in_time
-               FROM sit_ins
-               ORDER BY sit_in_time DESC"""
+                  s.id,
+                  s.student_id, 
+                  s.student_name, 
+                  s.course, 
+                  s.year_level,
+                  s.lab, 
+                  s.purpose, 
+                  s.processed_by,
+                  datetime(s.sit_in_time) as check_in_time,
+                  s.sessions_remaining
+               FROM sit_ins s
+               ORDER BY s.sit_in_time DESC"""
         )
         return jsonify({"success": True, "records": records})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-
-
+# FOR VIEW SIT_IN RECORDS
 @app.route('/get_sit_in_history')
 def get_sit_in_history():
     try:

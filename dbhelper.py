@@ -604,3 +604,29 @@ def get_current_sit_ins_filtered(lab='', query='', limit=10, offset=0):
     params.extend([limit, offset])
     
     return getprocess(sql, tuple(params))
+
+def sync_existing_sessions():
+    """One-time function to align existing records"""
+    try:
+        db = connect(database)
+        cursor = db.cursor()
+        
+        # Get all current sit-ins
+        cursor.execute("SELECT student_id, sessions_remaining FROM current_sit_in")
+        records = cursor.fetchall()
+        
+        for student_id, current_sessions in records:
+            # Update users table to match
+            cursor.execute(
+                "UPDATE users SET sessions = ? WHERE idno = ?",
+                (current_sessions, student_id)
+            )
+        
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Sync failed: {str(e)}")
+        return False
+    finally:
+        db.close()

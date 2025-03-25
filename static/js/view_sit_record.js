@@ -89,6 +89,7 @@ async function loadCheckedOutRecords() {
 }
 
 // Display records in table
+// Display records in table
 function displayRecords(records) {
     const tbody = document.querySelector('#recordsTable tbody');
     tbody.innerHTML = '';
@@ -96,7 +97,7 @@ function displayRecords(records) {
     if (!records || records.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center">No checked-out records found</td>
+                <td colspan="8" class="text-center">No checked-out records found</td>
             </tr>
         `;
         return;
@@ -111,12 +112,12 @@ function displayRecords(records) {
             <td>${record.year_level || 'N/A'}</td>
             <td>${record.lab || 'No lab'}</td>
             <td>${record.purpose || 'No purpose'}</td>
+            <td>${record.sessions_remaining !== undefined ? record.sessions_remaining : 'N/A'}</td>
             <td>${new Date(record.check_in_time).toLocaleString() || 'N/A'}</td>
         `;
         tbody.appendChild(row);
     });
 }
-
 // Load records when page opens
 document.addEventListener('DOMContentLoaded', loadCheckedOutRecords);
 
