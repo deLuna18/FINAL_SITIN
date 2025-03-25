@@ -218,25 +218,25 @@
             </div>
         </header>
 
-        <table class="styled-table" id="recordsTable">
-            <thead>
-                <tr class="heading">
-                    <th>ID Number</th>
-                    <th>Student Name</th>
-                    <th>Course</th>
-                    <th>Year Level</th>
-                    <th>Lab</th>
-                    <th>Purpose</th>
-                    <th>Processed By</th>
-                    <th>Time In</th>
-                    <th>Time Out</th>
-                </tr>
-            </thead>
-            <tbody id="sitRecordsTableBody">
-                <!-- Records will be loaded here -->
-            </tbody>
-        </table>
-       
+        <div class="table-container">
+            <table id="recordsTable" class="simple-table">
+                <thead>
+                    <tr>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Course</th>
+                        <th>Year</th>
+                        <th>Lab</th>
+                        <th>Purpose</th>
+                        <th>Check-in Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Records will appear here automatically -->
+                </tbody>
+            </table>
+        </div>
+        
         <!-- FOOTER | PAGINATION -->
         <footer>
             <div id="pagination">
@@ -247,6 +247,9 @@
                 <button id="nextPage">Next</button>
             </div>
         </footer>
+
+
+        
         
         
     </div>

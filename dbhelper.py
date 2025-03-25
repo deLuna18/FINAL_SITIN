@@ -557,27 +557,6 @@ def get_student_session_count(student_id: int) -> int:
     return result[0]["sessions"] if result else 0
 
 
-def get_current_sit_ins_filtered(lab='', query='', limit=10, offset=0):
-    """Get filtered current sit-ins"""
-    sql = """SELECT student_id, firstname, lastname, course, year_level, 
-                    email_address, username, profile_picture, lab, purpose, 
-                    datetime(check_in_time, 'localtime') as check_in_time
-             FROM current_sit_in
-             WHERE 1=1"""
-    params = []
-    
-    if lab:
-        sql += " AND lab = ?"
-        params.append(lab)
-        
-    if query:
-        sql += " AND (student_id LIKE ? OR firstname LIKE ? OR lastname LIKE ?)"
-        params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
-    
-    sql += " ORDER BY check_in_time DESC LIMIT ? OFFSET ?"
-    params.extend([limit, offset])
-    
-    return getprocess(sql, tuple(params))
 
 def count_current_sit_ins_filtered(lab='', query=''):
     """Count filtered current sit-ins"""

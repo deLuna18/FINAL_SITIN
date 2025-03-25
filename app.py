@@ -753,7 +753,59 @@ def get_current_sit_ins_route():
         "per_page": per_page
     })
 
+@app.route('/check_out_student', methods=['POST'])
+def check_out_student():
+    data = request.get_json()
+    student_id = data.get('student_id')
 
+    try:
+        # 1. Get record with guaranteed year_level
+        current_record = getprocess(
+            """SELECT 
+                  student_id, firstname, lastname, course, 
+                  COALESCE(year_level, 'Not Specified') AS year_level,
+                  lab, purpose, check_in_time
+               FROM current_sit_in 
+               WHERE student_id = ?""",
+            (student_id,)
+        )
+        
+        if not current_record:
+            return jsonify({"success": False, "error": "Student not found"})
+
+        record = current_record[0]
+
+        # 2. Insert with protected fields
+        history_success = postprocess(
+            """INSERT INTO sit_ins 
+               (student_id, student_name, course, year_level, lab, 
+                purpose, processed_by, sit_in_time)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                record['student_id'],
+                f"{record['firstname']} {record['lastname']}",
+                record.get('course', 'Not Specified'),
+                record['year_level'],  # Now guaranteed by COALESCE
+                record.get('lab', 'Not Specified'),
+                record.get('purpose', 'Not Specified'),
+                "Auto-Checkout",
+                record.get('check_in_time', datetime.now().isoformat())
+            )
+        )
+
+        # 3. Delete from current
+        checkout_success = postprocess(
+            "DELETE FROM current_sit_in WHERE student_id = ?",
+            (student_id,)
+        )
+
+        if not all([history_success, checkout_success]):
+            raise Exception("Database operation failed")
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 # ====================== VIEW SIT RECORD ================
 @app.route("/view_sit_record")
@@ -781,27 +833,55 @@ def view_sit_record():
         total_pages=total_pages,
     )
 
-@app.route("/api/view_sit_in_records")
-def api_view_sit_in_records():
-    if "user" not in session or not dbhelper.is_admin(session["user"]):
-        return jsonify({"error": "Unauthorized"}), 403
 
-    # Get pagination parameters
-    page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 10, type=int)
-    offset = (page - 1) * per_page
+@app.route('/get_checked_out_records')
+def get_checked_out_records():
+    try:
+        records = getprocess(
+            """SELECT 
+                  student_id, student_name, course, year_level,
+                  lab, purpose, processed_by,
+                  datetime(sit_in_time) as check_in_time
+               FROM sit_ins
+               ORDER BY sit_in_time DESC"""
+        )
+        return jsonify({"success": True, "records": records})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
-    # Fetch all reservations with status for View Sit-In Records
-    reservations = dbhelper.get_all_reservations_with_status(per_page, offset)
-    total_reservations = dbhelper.count_all_reservations()
 
-    # Return JSON response
-    return jsonify({
-        "students": reservations,
-        "total_students": total_reservations,
-        "page": page,
-        "per_page": per_page
-    })
+
+@app.route('/get_sit_in_history')
+def get_sit_in_history():
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        offset = (page - 1) * per_page
+
+        records = getprocess(
+            """SELECT 
+                  id, student_id, student_name, course, year_level,
+                  lab, purpose, processed_by, 
+                  datetime(sit_in_time) as check_in_time
+               FROM sit_ins
+               ORDER BY sit_in_time DESC
+               LIMIT ? OFFSET ?""",
+            (per_page, offset)
+        )
+
+        total = getprocess("SELECT COUNT(*) as count FROM sit_ins")[0]['count']
+
+        return jsonify({
+            "success": True,
+            "records": records,
+            "total": total,
+            "page": page,
+            "per_page": per_page
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 
 # ================================= [ADMIN] session if mo logout si student ===================================================
 @app.route("/admin_logout_student/<int:idno>", methods=["POST"])

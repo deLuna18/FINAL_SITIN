@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Global variables for pagination and filtering
 let currentSitInPage = 1;
-const sitInPerPage = 10;
+const sitInPerPage = 5;
 let currentLabFilter = '';
 let currentSearchQuery = '';
 
@@ -137,6 +137,7 @@ function displayCurrentSitIns(sitIns) {
             <td>${sitIn.email_address || 'N/A'}</td>
             <td>${sitIn.lab || 'No lab'}</td>
             <td>${sitIn.purpose || 'No purpose'}</td>
+            <td>${sitIn.sessions_remaining !== undefined ? sitIn.sessions_remaining : '30'}</td>
             <td>${formatDateTime(sitIn.check_in_time) || 'N/A'}</td>
             <td>
                 <button class="check-out-btn" data-id="${sitIn.student_id}">
@@ -153,7 +154,7 @@ function displayCurrentSitIns(sitIns) {
     });
 }
 
-
+ 
 // Format date-time display
 function formatDateTime(datetimeString) {
     if (!datetimeString) return '';
@@ -167,33 +168,32 @@ function formatDateTime(datetimeString) {
     return new Date(datetimeString).toLocaleString('en-US', options);
 }
 
-// Handle check-out
 async function handleCheckOut() {
-    const studentId = this.dataset.id;
-    if (!confirm(`Check out student ${studentId}?`)) return;
-    
+    const studentId = this.getAttribute('data-id');
+    const studentName = this.closest('tr').querySelector('td:nth-child(2)').textContent;
+
+    if (!confirm(`Check out ${studentName} (ID: ${studentId})?`)) return;
+
     try {
         const response = await fetch('/check_out_student', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ student_id: studentId })
         });
-        
-        if (!response.ok) throw new Error('Check-out failed');
-        
+
         const result = await response.json();
+
         if (result.success) {
-            alert('Student checked out successfully!');
-            fetchCurrentSitIns(currentSitInPage);
+            alert(`${studentName} checked out successfully!`);
+            fetchCurrentSitIns(); // Refresh the table
         } else {
-            throw new Error(result.error || 'Check-out failed');
+            throw new Error(result.error || "Checkout failed");
         }
     } catch (error) {
-        console.error('Check-out error:', error);
+        console.error("Checkout error:", error);
         alert(`Error: ${error.message}`);
     }
 }
-
 // Update pagination controls
 function updatePaginationControls(totalItems, currentPage) {
     const totalPages = Math.ceil(totalItems / sitInPerPage);
